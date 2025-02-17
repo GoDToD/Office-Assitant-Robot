@@ -11,7 +11,7 @@ class YOLODetector(Node):
         super().__init__('yolo_detector')
         self.subscription = self.create_subscription(
             Image,
-            '/camera/image_raw',
+            '/head_front_camera/rgb/image_raw',
             self.image_callback,
             10)
         self.bridge = CvBridge()

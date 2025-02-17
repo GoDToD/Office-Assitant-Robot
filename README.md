@@ -7,9 +7,9 @@ pip install ultralytics opencv-python numpy
 
 
 first time run:
-cd ~/tiango_public_ws
+cd ~/tiango_public_ws\n
 colcon build --packages-select yolo_detector
 
 start detecter node:
-cd ~/tiango_public_ws/yolo_detecter/yolo_detecter
+cd ~/tiango_public_ws/yolo_detecter/yolo_detecter\n
 python3 yolo_detecter.py

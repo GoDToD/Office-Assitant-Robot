@@ -1,4 +1,6 @@
 from setuptools import setup
+import os
+from glob import glob
 
 package_name = 'yolo_detector'
 
@@ -15,7 +17,11 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'yolo_detector = yolo_detector.yolo_detector:main',
+            'yolo_detector = yolo_detector.yolo_detector:main',  # This should match your script
         ],
     },
+    data_files=[
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
+    ],
 )
+

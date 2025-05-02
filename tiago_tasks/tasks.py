@@ -13,7 +13,7 @@ from std_msgs.msg import Float64
 #from moveit.planning import MoveItPy
 
 from geometry_msgs.msg import Pose
-
+from linkattacher_msgs.srv import AttachLink, DetachLink
 
 # ✅ 不依赖任何外部库的欧拉角 → 四元数转换函数
 def euler_to_quaternion(roll, pitch, yaw):
@@ -32,7 +32,7 @@ def euler_to_quaternion(roll, pitch, yaw):
     return qx, qy, qz, qw
 
 class GoToPose(Node):
-    def __init__(self):
+    def __init__(self,point):
         super().__init__('go_to_pose_node')
         self.navigator = BasicNavigator()
 
@@ -45,14 +45,20 @@ class GoToPose(Node):
         goal_pose.header.stamp = self.get_clock().now().to_msg()
 
         # ✅ 来自 Gazebo 中的位置
-        goal_pose.pose.position.x = -0.584249
-        goal_pose.pose.position.y = -6.295790
-        goal_pose.pose.position.z = 0.0
-
+        # goal_pose.pose.position.x = -0.584249
+        # goal_pose.pose.position.y = -6.295790
+        # goal_pose.pose.position.z = 0.0
+        # roll = 0.000044
+        # pitch = 0.000541
+        # yaw = 0.089800
+        goal_pose.pose.position.x = point[0]
+        goal_pose.pose.position.y = point[1]
+        goal_pose.pose.position.z = point[2]
+        roll = point[3]
+        pitch = point[4]
+        yaw = point[5]
         # ✅ 欧拉角 → 四元数（Gazebo 中的角度）
-        roll = 0.000044
-        pitch = 0.000541
-        yaw = 0.089800
+       
         qx, qy, qz, qw = euler_to_quaternion(roll, pitch, yaw)
 
         goal_pose.pose.orientation.x = qx
@@ -73,120 +79,43 @@ class GoToPose(Node):
         else:
             self.get_logger().warn(f"❌ Navigation Failed: {result}")
 
+class LinkAttacherClient(Node):
+    def __init__(self):
+        super().__init__('link_attacher_client')
 
-    # def grab_coke_can(self):
-    #     self.get_logger().info("📦 Grabbing Coke can using moveit_py...")
+    def attach(self, model1, link1, model2, link2):
+        client = self.create_client(AttachLink, '/ATTACHLINK')
+        while not client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('等待 /ATTACHLINK 服务中...')
+        request = AttachLink.Request()
+        request.model1_name = model1
+        request.link1_name = link1
+        request.model2_name = model2
+        request.link2_name = link2
 
-    #     # ✅ 初始化 moveit_py
-    #     moveit = MoveItPy(node=self)
-    #     arm = moveit.get_planning_component("arm")
-    #     gripper = moveit.get_planning_component("gripper")
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        if future.result() is not None:
+            self.get_logger().info('附着成功')
+        else:
+            self.get_logger().error('附着失败')
 
-    #     # ✅ 上方抓取位姿
-    #     target_pose = Pose()
-    #     target_pose.position.x = 0.395159
-    #     target_pose.position.y = -6.163966
-    #     target_pose.position.z = 0.95  # 抓取前稍高一点
-    #     qx, qy, qz, qw = euler_to_quaternion(0.032540, -0.062413, -0.004006)
-    #     target_pose.orientation.x = qx
-    #     target_pose.orientation.y = qy
-    #     target_pose.orientation.z = qz
-    #     target_pose.orientation.w = qw
+    def detach(self, model1, link1, model2, link2):
+        client = self.create_client(DetachLink, '/DETACHLINK')
+        while not client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('等待 /DETACHLINK 服务中...')
+        request = DetachLink.Request()
+        request.model1_name = model1
+        request.link1_name = link1
+        request.model2_name = model2
+        request.link2_name = link2
 
-    #     arm.set_goal_state(pose=target_pose)
-    #     plan = arm.plan()
-    #     if plan:
-    #         plan.execute()
-    #     else:
-    #         self.get_logger().error("❌ Failed to reach above the Coke can.")
-    #         return
-
-    #     # ✅ 向下靠近罐子
-    #     target_pose.position.z = 0.80
-    #     arm.set_goal_state(pose=target_pose)
-    #     plan = arm.plan()
-    #     if plan:
-    #         plan.execute()
-    #     else:
-    #         self.get_logger().error("❌ Failed to move down to the Coke can.")
-    #         return
-
-    #     # ✅ 闭合夹爪（控制左指即可）
-    #     gripper.set_goal_state(joint_positions={"gripper_left_finger_joint": 0.8})
-    #     plan = gripper.plan()
-    #     if plan:
-    #         plan.execute()
-    #         self.get_logger().info("🤏 Gripper closed.")
-    #     else:
-    #         self.get_logger().error("❌ Failed to close gripper.")
-    #         return
-
-    #     # ✅ 抬起可乐罐
-    #     target_pose.position.z = 1.0
-    #     arm.set_goal_state(pose=target_pose)
-    #     plan = arm.plan()
-    #     if plan:
-    #         plan.execute()
-    #         self.get_logger().info("✅ Can lifted successfully!")
-    #     else:
-    #         self.get_logger().error("❌ Failed to lift the can.")
-
-    # def grab_coke_can(self):
-    #     self.get_logger().info("📦 Starting to grab the Coke can...")
-
-    #     # Step 1: MoveIt 机械臂控制器
-    #     arm_group = MoveGroupCommander("arm")  # 请根据你 MoveIt 的配置修改 group 名称
-    #     arm_group.set_max_velocity_scaling_factor(0.2)
-    #     arm_group.set_max_acceleration_scaling_factor(0.2)
-
-    #     # Step 2: 夹爪控制 publisher（假设是 Float64）
-    #     gripper_pub = self.create_publisher(Float64, "/gripper_controller/command", 10)
-
-    #     # Step 3: 设置抓取姿态（略高于目标点）
-    #     target_pose = Pose()
-    #     target_pose.position.x = 0.395159
-    #     target_pose.position.y = -6.163966
-    #     target_pose.position.z = 0.95  # 稍高于可乐罐上方
-    #     qx, qy, qz, qw = euler_to_quaternion(0.032540, -0.062413, -0.004006)
-    #     target_pose.orientation.x = qx
-    #     target_pose.orientation.y = qy
-    #     target_pose.orientation.z = qz
-    #     target_pose.orientation.w = qw
-
-    #     arm_group.set_pose_target(target_pose)
-    #     success = arm_group.go(wait=True)
-    #     arm_group.stop()
-    #     arm_group.clear_pose_targets()
-
-    #     if not success:
-    #         self.get_logger().error("❌ Failed to reach above the Coke can.")
-    #         return
-
-    #     # Step 4: 下移靠近罐子
-    #     target_pose.position.z = 0.80
-    #     arm_group.set_pose_target(target_pose)
-    #     success = arm_group.go(wait=True)
-    #     arm_group.stop()
-    #     arm_group.clear_pose_targets()
-
-    #     if not success:
-    #         self.get_logger().error("❌ Failed to move closer to the Coke can.")
-    #         return
-
-    #     # Step 5: 关闭夹爪抓取（1.0）
-    #     gripper_msg = Float64()
-    #     gripper_msg.data = 1.0
-    #     gripper_pub.publish(gripper_msg)
-    #     self.get_logger().info("🤏 Gripper closed to grab the can.")
-    #     time.sleep(1.0)
-
-    #     # Step 6: 抬起
-    #     target_pose.position.z = 1.0
-    #     arm_group.set_pose_target(target_pose)
-    #     arm_group.go(wait=True)
-    #     arm_group.stop()
-    #     arm_group.clear_pose_targets()
-    #     self.get_logger().info("✅ Coke can grabbed successfully!")
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        if future.result() is not None:
+            self.get_logger().info('释放成功')
+        else:
+            self.get_logger().error('释放失败')
 class ArmController(Node):
     def __init__(self):
         super().__init__('arm_trajectory_controller')
@@ -254,7 +183,7 @@ class GripperController(Node):
 
         point = JointTrajectoryPoint()
         point.positions = [position, position]
-        point.time_from_start.sec = 4
+        point.time_from_start.sec = 8
         goal_msg.trajectory.points = [point]
 
         self.get_logger().info(f'🚀 Sending goal: position = {position}')
@@ -275,25 +204,25 @@ class GripperController(Node):
             self.get_logger().info('✅ Gripper action succeeded!')
         else:
             self.get_logger().error(f'❌ Gripper action failed with error code: {result.error_code}')
-def test(args):
-    rclpy.init(args=args)
-    node1 = ArmController()
-    node2 = GripperController()
-    node1.send_target_pose([55,0,-90,100,0,0,0])
-    time.sleep(4)
-    node2.send_gripper_goal(0.03)
-    time.sleep(4)
-    node1.send_target_pose([55,20,-90,100,0,0,0])
-    node1.destroy_node()
-    node2.destroy_node()
-    
-    rclpy.shutdown()
+
 def main(args=None):
     #test(args)
     rclpy.init(args=args)
-    node = GoToPose()
+    
+
+    # 修改为你的模型名和链接名
+    robot_model = 'tiago'
+    robot_link = 'gripper_right_finger_link'
+    object_model = 'coke_can'
+    object_link = 'link'
+
+    point1 =[-0.584249,-6.295790,0.0,0.000044,0.000541,0.089800]
+    point2 = [-2.2574231656455113,-6.363620554879826,0.0,0.0,0.0,-6.363620554879826
+]
+    point3 = [0.0,0.0,0.0,0.0,0.0,0.0]
+    node = GoToPose(point1)
     rclpy.spin_once(node)
-    node.destroy_node()
+    
     time.sleep(4)
 
     node1 = ArmController()
@@ -314,14 +243,24 @@ def main(args=None):
     time.sleep(4)
     node1.send_target_pose([55,0,-90,100,0,0,0])
     time.sleep(4)
-    # ✊ 关闭夹爪（0.035）
-    node2.send_gripper_goal(0.03)
+    # ✊ 关闭夹爪（0.035)
+    node2.send_gripper_goal(0.035)
+    time.sleep(4)
+    # attach
+    node3 = LinkAttacherClient()
+    node3.attach(robot_model, robot_link, object_model, object_link)
     time.sleep(4)
     node1.send_target_pose([55,20,-90,100,0,0,0])
+    time.sleep(4)
+    
+    node = GoToPose(point2)
+    time.sleep(4)
+    node = GoToPose(point3)
 
+    node.destroy_node()
     node1.destroy_node()
     node2.destroy_node()
-
+    node3.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
